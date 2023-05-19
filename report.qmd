@@ -1,0 +1,301 @@
+---
+title: "Prisoners & Drug Use"
+output: html_document
+
+author: "Kelly Culpepper & Biniam Garomsa"
+---
+
+```{r packages-data, include = FALSE}
+
+required_packages <- c("shiny", "shinythemes", "ggplot2", "dplyr", "maps", "stringr", "shinydashboard", "RColorBrewer")
+
+# Check if required packages are installed and install if necessary
+for (package in required_packages) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package, dependencies = TRUE)
+    library(package, character.only = TRUE)
+  }
+}
+
+library(shiny)
+library(shinythemes)
+library(ggplot2)
+library(dplyr)
+library(maps)
+library(stringr)
+library(shinydashboard)
+library(RColorBrewer)
+
+# Load data
+df <-
+  read.csv("~/project-team25/data/prison_data.csv", stringsAsFactors = FALSE)
+map_data <- map_data("state")
+order_of_bars <-
+  c("At the time of Arrest",
+    "Past 30 days",
+    "Past 12 months",
+    "More than a year ago",
+    "Never used")
+order_edu <- c("Less Than High School", "High School Graduate", "Some College",
+               "College Degree or More")
+explore_cols <-
+  c( "Age","Sex","Race","State","Highest_Year_Education_Before_Prison",
+     "Age_group","Crime_type")
+
+df <- df %>%
+  filter(!State %in% c("-1", "-2", NA, "DC", "PR")) %>%
+  mutate(time_of_use = factor(time_of_use, levels = order_of_bars),
+         Highest_Year_Education_Before_Prison = factor(
+           Highest_Year_Education_Before_Prison,
+           levels = order_edu),
+         Crime_type = case_when(
+           Crime_type == 1 ~ "Violent",
+           Crime_type == 2 ~ "Property",
+           Crime_type == 3 ~ "Drug",
+           Crime_type == 4 ~ "Public order",
+           Crime_type == 5 ~ "Other",
+           TRUE ~ NA_character_)) %>%
+  filter(Race != "Other") %>%
+  filter(Age_group != "<18")
+
+
+df_selected <- df[explore_cols]
+
+df <-
+  df %>% mutate(used_any_ever = as.integer(if_any(
+    c(Alcohol,
+      Alcohol_12months,
+      Alcohol_ever,
+      Marijuana,
+      Marijuana_30days,
+      Marijuana_12months,
+      Marijuana_ever,
+      Heroin,
+      Heroin_30days,
+      Heroin_12months,
+      Heroin_ever,
+      Cocaine,
+      Cocaine_30days,
+      Cocaine_12months,
+      Cocaine_ever
+    ),
+    ~ . == 1
+  )),
+  used_any_12months = as.integer(if_any(
+    c(
+      Alcohol_12months,
+      Marijuana_12months,
+      Heroin_12months,
+      Cocaine_12months
+    ),
+    ~ . == 1
+  )))
+```
+
+
+
+### Introduction & Motivation
+
+The United States is home to the largest prison population in the world. 
+Consequently, incarceration is a major subject in policy and in public
+discourse. Drug use among prisoners is a topic that demands attention because it
+ties into an interconnected web of social and health issues. Drug-related crimes
+are a major contributor not only to the prison population itself, but to the
+well-documented racial disparities in incarceration and sentencing. Substance 
+abuse is prevalent among prisoners and is often linked to other mental health
+problems.
+
+In this project, we aimed to investigate patterns in drug use among American
+prisoners, and to develop a shiny app that allows anyone to easily visualize
+drug use among subpopulations of their choosing. We wanted to create a
+tool that could inform the general public, while also allowing interested
+parties to easily perform some exploratory analysis. Ultimately, this tool 
+could be used to discover new patterns that may warrant further research,
+or to identify populations most at risk from certain drugs.
+
+### Data
+
+We sourced data from the 2016 Survey of Prison Inmates (SPI), a large, 
+cross-sectional study conducted by the Bureau of Justice Statistics. We
+chose this dataset because it is a large, rigorous study with a sample size of
+24,848 prisoners, and because it contains variables of interest including
+demographic characteristics, type of crime, and a number of drug-related 
+variables. Additionally, this is a periodic study with standardized questions
+over time, which would allow us to extend this architecture to different time
+periods in the future.
+
+## Data Cleaning
+
+We selected variables corresponding to prisoner age, race, sex, highest 
+educational attainment before being incarcerated, and the type of crime for
+which they were convicted. We also selected variables that indicated whether
+the prisoner had used a certain drug (alcohol, marijuana, heroin, or 
+cocaine) within a certain time period (at arrest, within 30 days of arrest,
+within 1 year of arrest, or ever).
+
+We renamed the columns and recoded the values. We created and applied functions
+to add the new variables `drug_type` and `time_of_use` based on the values of
+the drug variables. Specifically, `drug_type` gives which type of drug a
+prisoner has used in their lifetime, and `time_of_use` gives the last time
+they used any drug out of alcohol, marijuana, heroin, or cocaine. We also
+opted to use a categorical `Age_group` variable based on age. Finally, we added
+columns that indicated whether a prisoner had used any drug in their lifetime
+or within 1 year of arrest. This would allow us to visualize overall drug use.
+
+Additionally, for purposes of the visualizations, we omitted a couple of 
+demographic categories that were exceptionally small. Specifically, we 
+excluded the "Other" race category, which had only 7 people, and the "under 18"
+age category, which had 37. The small size of these subsets relative to the 
+overall sample severely limits the insight we can gain on them, so we decided to
+focus on the other race and age groups. 
+
+For our geographic analysis and mapping, we wanted to focus on states, and thus
+we filtered to only include the 50 US states. This meant excluding some
+respondents from Washington, DC and Puerto Rico. We further omitted prisoners
+who were missing demographic information.
+
+### Developing the Shiny App
+
+We aimed to develop a Shiny app that would offer many options for self-directed
+exploration of the data, while remaining intuitive and simple enough to be 
+helpful for any user.
+
+We divided the visualizations into two main sections: the demographics and drug
+use sections. Since these two sections serve different purposes and require 
+different inputs, we implemented a Shiny Dashboard UI to place them in 
+separate tabs. We also used Shiny Dashboard features to create a collapsible
+side menu for navigating between the visualization tabs. We also included
+an introductory tab explaining the data and the purpose of the app.
+
+The demographics section allows users to visualize a selected demographic
+category within the prison population overall. They may also visualize
+the type of crime committed. This section allows users to familiarize themselves with the general characteristics of prisoners, as well as providing crucial
+context for the demographic categories they will explore in the drug use tab.
+We determined than we could effectively communicate this data by offering
+both a bar and pie chart, which the user can switch between. Both of these visualizations are commonly understood and easy to interpret. The pie chart
+makes it easy to see the proportion of each demographic. The bar chart, on the other hand, is preferable for seeing counts, which we emphasize by displaying
+the count above each bar.
+
+The drug use tab is the most interactive. It enables users to thoroughly
+compare drug use across states and demographics, using 3 different plots. The
+sidebar includes dropdown selections for age, sex, race, education, and the
+type of crime. The data is reactively filtered, and users can pick as many
+or as few filters as they like. Thus, they can select the exact group they're
+interested in and visualize multiple aspects of drug use among that group. In
+the main panel, we used tabset tabs to organize the plots. This allows each plot
+to be viewed individually at a large size, and lets you easily switch between 
+plots while keeping the filter selections intact.
+
+The first plot gives an overview of which drugs prisoners in the selected group
+have used in their life. The second plot shows the time of their most recent
+drug use. This is a meaningful addition because it helps distinguish
+current/regular drug use from having ever used drugs. For both of these
+visualizations, we once again provided a choice between bar and pie chart. Here,
+the bar chart is imperative because the issue of small demographic subsets (which will be discussed further in "Limitations") necessitates providing some context about the raw counts.
+
+The third plot provides a map of the United States and allows for comparisons
+across states. Two additional dropdowns allow the user to pick any of the four
+drugs to visualize the usage of, and to select a time period of 12 months or
+lifetime. This is an approximation of "lifetime users" versus "current users at time of arrest". An all option is also included with the drugs, facilitating
+comparisons of total drug use rates. The state map uses a color gradient to
+represent the proportion of prisoners in the selected demographic
+who used a certain drug, for each state. We chose this style of plot 
+because it communicates geographic information in a very immediate and visual
+way. We also believe this visualization, in combination with the fully 
+user-controlled filters, is engaging and encourages exploration.
+
+The image below previews how the app looks to users and demonstrates the 
+organized layout, with a hierarchy of dashboard tabs and tabset tabs. The full
+app can be run from the `shiny_app.R` file.
+
+![An example of how the app looks to users](data/app_demo.png)
+
+The flexibility in filtering and visualizations gives users the power to 
+quickly explore some interesting questions about the data. For a simple example,
+we might want to compare the drugs used by 25-34 year olds on the basis of sex:
+
+![An example chart for young men](data/demo2.png)
+![An example chart for young women](data/demo3.png)
+
+From this quick comparison, we can observe a striking interest in marijuana
+use between 25-34 year old males and females. Although our tool cannot
+illuminate the causes of this difference, this is one of many possible
+research ideas we might come up with while using this exploratory tool.
+
+### Limitations
+
+Our approach has some notable limitations. The most significant limitation is 
+the small sample sizes of some demographic subsets. Although we intended to
+build a comprehensive tool to analyze any combination of demographic traits,
+stacking two or more demographic filters can excessively narrow the population 
+if these filters include relatively smaller groups. These include the age 
+groups 18-24 and 55+; the American Indian/Alaska Native and Asian American/
+Native Hawaiian/Pacific Islander groups; college-educated prisoners; and the 
+"other" crime category.
+
+Issues with narrow subsets are by far most pronounced in the state map. Many 
+demographic combinations only exist in a limited number of states, which will
+cause the rest to be greyed out. This can happen even with just one demographic
+filter. Perhaps more concerningly, for states that do have prisoners from a narrow
+demographic, the map can be misleading when viewed on its own, because it relies
+solely on proportions. 
+
+To illustrate the concerns with small demographic subsets, let's examine the
+state map for all drug use in the past 12 months, filtering for only Asian &
+Pacific Islander inmates:
+
+```{r, echo =  FALSE}
+
+df_aapi_ex = df %>%
+  filter(Race == "Asian/Native Hawaiian/Other Pacific Islander") %>%
+        select(State, used_any_12months) %>%
+      group_by(State) %>%
+      summarize(percent_use = 100 * mean(used_any_12months == 1))
+
+    df_aapi_ex$State = str_to_lower(
+      state.name[match(df_aapi_ex$State, state.abb)])
+    
+    df_aapi_ex = left_join(map_data, df_aapi_ex, by = c("region" = "State"))
+    
+    ggplot(df_aapi_ex, aes(
+      x = long,
+      y = lat,
+      group = group,
+      fill = percent_use
+    )) +
+      geom_polygon() +
+      theme_void() +
+      scale_fill_distiller(palette = "RdBu",
+                           direction = 1,
+                           name = "% Use") +
+      coord_fixed(1.3)
+```
+
+We can see that many states had no AAPI prisoners at all in the sample. 
+Furthermore, from this plot alone, a user could reach some strange conclusions. 
+They might think that all AAPI prisoners in Mississippi, Alabama, Iowa, and
+Oklahoma were using drugs, while in many other states, no prisoners were using
+drugs! In reality, this is simply due to the limited number of AAPI prisoners
+in the dataset and their distribution among 50 different states. We hope that
+the inclusion of bar charts will help users to see this context. Nonetheless, we could ensure users do not misinterpret the map by incorporating the counts into
+it or displaying a cautionary message when the user has selected a sparse 
+subgroup.
+
+### Conclusion
+
+We were able to leverage SPI data to build a user-friendly Shiny app with
+highly interactive visualizations. We believe this could be a useful tool
+for sparking public interest in the relationship between drug use and 
+incarceration in the US. It can also serve as an exploratory tool to
+highlight possible research questions. However, it is significantly limited
+by the small size of some filtered subsets, particularly in terms of the 
+geographical analysis.
+
+### Division of Work
+
+Biniam performed the data cleaning, Kelly wrote the report, and we both 
+worked on the shiny app code and design.
+
+### References
+
+United States. Bureau of Justice Statistics. Survey of Prison Inmates, United States, 2016. Inter-university Consortium for Political and Social Research [distributor], 2021-09-15. https://doi.org/10.3886/ICPSR37692.v4

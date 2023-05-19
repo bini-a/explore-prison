@@ -1,0 +1,277 @@
+---
+title: "Data Cleaning"
+author: "Biniam Garomsa, Kelly Culpepper"
+format: 
+  html:
+    embed-resources: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r import_library}
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(readr)
+library(data.table)
+```
+
+
+```{r load_data}
+df_1 <- fread("Crimedata.csv")
+## rename columns using variables codes
+df_1 <- df_1 %>%
+  rename(
+    Alcohol = V1267, # Drinking alcohol at time of offense
+    Alcohol_12months = V1268, #Any binge drinking during 12 months before admission
+    Alcohol_ever = V1263, # Ever had an alcoholic beverage
+    Marijuana = V1327,
+    Marijuana_30days = V1315,
+    Marijuana_12months = V1339,
+    Marijuana_ever = V1291,
+    Heroin = V1330,
+    Heroin_30days = V1318,
+    Heroin_12months = V1342,
+    Heroin_ever = V1294,
+    Cocaine = V1328,
+    Cocaine_30days = V1316,
+    Cocaine_12months = V1340,
+    Cocaine_ever = V1301,
+    Highest_Year_Education_Before_Prison = RV0054,
+    Age = RV0001,
+    Race = RV0003,
+    Sex = RV0005,
+    State = V0772,
+    Crime_type = RV0037
+  )
+
+# rename column
+cols_to_clean <- c("Alcohol",
+                   "Alcohol_12months",
+                   "Alcohol_ever",
+                   "Marijuana",
+                   "Marijuana_30days",
+                   "Marijuana_12months",
+                   "Marijuana_ever",
+                   "Heroin",
+                   "Heroin_30days",
+                   "Heroin_12months",
+                   "Heroin_ever",
+                   "Cocaine",
+                   "Cocaine_30days",
+                   "Cocaine_12months",
+                   "Cocaine_ever",
+                   "Highest_Year_Education_Before_Prison", "Race", "Crime_type")
+all_cols <- c(cols_to_clean, "Age", "Sex", "State")
+
+subset_df <- df_1[, ..all_cols]
+
+# Save the subsetted data frame as a CSV file
+write.csv(subset_df, file = "data/extracted_df.csv", row.names = FALSE)
+## subset columns and save data
+```
+
+```{r load-data}
+df_2 = read.csv("data/extracted_df.csv")
+
+# extract numeric values for cols_to_clean
+for(col in cols_to_clean) {
+  df_2[[col]] <- str_extract(df_2[[col]], "([\\-0-9]+)") %>% as.integer() %>% replace_na(0)
+}
+
+df_2$Sex <- str_extract(df_2$Sex, "([A-Za-z]+)")
+```
+
+```{r time_use_col}
+drug_use <- function(row) {
+  if (row$Cocaine == 1 || row$Heroin == 1 || row$Marijuana == 1 || row$Alcohol == 1) {
+    return("At the time of Arrest")
+  }
+  if (row$Cocaine_30days == 1 || row$Heroin_30days == 1 || row$Marijuana_30days == 1 || row$Heroin_30days == 1) {
+    return("Past 30 days")
+  }
+  if (row$Alcohol_12months == 1 || row$Marijuana_12months == 1 || row$Cocaine_12months == 1 || row$Heroin_12months == 1) {
+    return("Past 12 months")
+  }
+  if (row$Marijuana_ever == 1 || row$Cocaine_ever == 1 || row$Alcohol_ever == 1 || row$Heroin_ever == 1) {
+    return("More than a year ago")
+  }
+  return("Never used")
+}
+
+df_2$time_of_use <- NA
+for (i in 1:nrow(df_2)) {
+  df_2$time_of_use[i] <- drug_use(df_2[i,])
+}
+```
+
+```{r drug_type_col}
+drug_type <- function(row) {
+  drug_alg <- character()
+  if (row$Cocaine == 1 || row$Heroin == 1 || row$Marijuana == 1 || row$Alcohol == 1) {
+    if (row$Marijuana == 1 && !("Marijuana" %in% drug_alg)) drug_alg <- c(drug_alg, "Marijuana") 
+    if (row$Heroin == 1 && !("Heroin" %in% drug_alg)) drug_alg <- c(drug_alg, "Heroin") 
+    if (row$Cocaine == 1 && !("Cocaine" %in% drug_alg)) drug_alg <- c(drug_alg, "Cocaine")
+    if (row$Alcohol == 1 && !("Alcohol" %in% drug_alg)) drug_alg <- c(drug_alg, "Alcohol")
+    return (paste(drug_alg, collapse = ","))
+  }
+  if (row$Cocaine_30days == 1 || row$Heroin_30days == 1 || row$Marijuana_30days == 1) {
+    if (row$Marijuana_30days == 1 && !("Marijuana" %in% drug_alg)) drug_alg <- c(drug_alg, "Marijuana") 
+    if (row$Heroin_30days == 1 && !("Heroin" %in% drug_alg)) drug_alg <- c(drug_alg, "Heroin") 
+    if (row$Cocaine_30days == 1 && !("Cocaine" %in% drug_alg)) drug_alg <- c(drug_alg, "Cocaine")
+    return (paste(drug_alg, collapse = ","))
+  }
+  if (row$Alcohol_12months == 1 || row$Marijuana_12months == 1 || row$Cocaine_12months == 1 || row$Heroin_12months == 1) {
+    if (row$Marijuana_12months == 1 && !("Marijuana" %in% drug_alg)) drug_alg <- c(drug_alg, "Marijuana") 
+    if (row$Heroin_12months == 1 && !("Heroin" %in% drug_alg)) drug_alg <- c(drug_alg, "Heroin") 
+    if (row$Cocaine_12months == 1 && !("Cocaine" %in% drug_alg)) drug_alg <- c(drug_alg, "Cocaine")
+    if (row$Alcohol_12months == 1 && !("Alcohol" %in% drug_alg)) drug_alg <- c(drug_alg, "Alcohol")
+    return (paste(drug_alg, collapse = ","))
+  }
+  if (row$Marijuana_ever == 1 || row$Cocaine_ever == 1 || row$Alcohol_ever == 1 || row$Heroin_ever == 1) {
+    if (row$Marijuana_ever == 1 && !("Marijuana" %in% drug_alg)) drug_alg <- c(drug_alg, "Marijuana") 
+    if (row$Heroin_ever == 1 && !("Heroin" %in% drug_alg)) drug_alg <- c(drug_alg, "Heroin") 
+    if (row$Cocaine_ever == 1 && !("Cocaine" %in% drug_alg)) drug_alg <- c(drug_alg, "Cocaine")
+    if (row$Alcohol_ever == 1 && !("Alcohol" %in% drug_alg)) drug_alg <- c(drug_alg, "Alcohol")
+    return (paste(drug_alg, collapse = ","))
+  }
+  return (paste(drug_alg, collapse = ","))
+  }
+
+df_2$drug_type <- NA
+
+for (i in 1:nrow(df_2)) {
+  df_2$drug_type[i] <- drug_type(df_2[i,])
+}
+```
+
+```{r new_cols}
+df_2 <- df_2%>%
+  mutate(val_num_drugs = ifelse(df_2$drug_type == "", 0, str_count(df_2$drug_type, ",") + 1))%>%
+  mutate(num_drugs = case_when(
+    val_num_drugs ==0 ~ "None",
+    val_num_drugs > 1 ~ "More than one drug",
+    TRUE ~ drug_type))
+```
+
+```{r }
+# education
+df_2$Highest_Year_Education_Before_Prison <- factor(df_2$Highest_Year_Education_Before_Prison,
+                          levels = c(1, 2, 3, 4, 9),
+                          labels = c("Less Than High School", 
+                                     "High School Graduate", 
+                                     "Some College", 
+                                     "College Degree or More", 
+                                     "Missing"))
+# race
+df_2 <- df_2 %>% mutate(Race = case_when(
+  Race == 1 ~ "White",
+  Race == 2 ~ "Black",
+  Race == 3 ~ "Hispanic",
+  Race == 4 ~ "American Indian/Alaska Native",
+  Race == 5 ~ "Asian/Native Hawaiian/Other Pacific Islander",
+  Race == 6 ~ "2+ Races",
+  Race == 8 ~ "Other",
+  Race == 9 ~ "Missing",
+  TRUE ~ NA_character_
+)) %>%
+
+# age
+
+categorize_age <- function(val) {
+  if (val <= 18) {
+    return("<18")
+  }
+  if (val <= 24) {
+    return("18-24")
+  }
+  if (val <= 34) {
+    return("25-34")
+  }
+  if (val <= 44) {
+    return("35-44")
+  }
+  if (val <= 55) {
+    return("45-55")
+  }
+  return("55+")
+}
+
+df_2$Age_group <- sapply(df_2$Age, categorize_age)
+df_2 <- df_2 %>%
+  filter(Highest_Year_Education_Before_Prison != "Missing" & 
+         Race != "Missing" & 
+         Crime_type %in% c(1, 2, 3, 4, 5))
+
+```
+
+
+```{r}
+# order data.  handle missing values
+
+order_of_bars <-
+  c("At the time of Arrest",
+    "Past 30 days",
+    "Past 12 months",
+    "More than a year ago",
+    "Never used")
+order_edu <- c("Less Than High School", "High School Graduate", "Some College",
+               "College Degree or More")
+
+
+df_2 <- df_2 %>%
+  filter(!State %in% c("-1", "-2", NA, "DC", "PR")) %>%
+  mutate(time_of_use = factor(time_of_use, levels = order_of_bars),
+         Highest_Year_Education_Before_Prison = factor(
+           Highest_Year_Education_Before_Prison,
+           levels = order_edu),
+         Crime_type = case_when(
+           Crime_type == 1 ~ "Violent",
+           Crime_type == 2 ~ "Property",
+           Crime_type == 3 ~ "Drug",
+           Crime_type == 4 ~ "Public order",
+           Crime_type == 5 ~ "Other",
+           TRUE ~ NA_character_)) %>%
+  filter(Race != "Other") %>%
+  filter(Age_group != "<18")
+
+df_2 <- df_2 %>% mutate(used_any_ever = as.integer(if_any(
+    c(Alcohol,
+      Alcohol_12months,
+      Alcohol_ever,
+      Marijuana,
+      Marijuana_30days,
+      Marijuana_12months,
+      Marijuana_ever,
+      Heroin,
+      Heroin_30days,
+      Heroin_12months,
+      Heroin_ever,
+      Cocaine,
+      Cocaine_30days,
+      Cocaine_12months,
+      Cocaine_ever
+    ),
+    ~ . == 1
+  )),
+  used_any_12months = as.integer(if_any(
+    c(
+      Alcohol_12months,
+      Marijuana_12months,
+      Heroin_12months,
+      Cocaine_12months
+    ),
+    ~ . == 1
+  )))
+
+```
+
+
+```{r}
+write.csv(df_2, file = "data/prison_data.csv", row.names = FALSE)
+
+```
+
+
+
