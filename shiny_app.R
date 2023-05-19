@@ -7,26 +7,6 @@ library(stringr)
 library(shinydashboard)
 library(RColorBrewer)
 
-
-required_packages <- c("shiny", "shinythemes", "ggplot2", "dplyr", "maps", "stringr", "shinydashboard", "RColorBrewer")
-
-# Check if required packages are installed and install if necessary
-for (package in required_packages) {
-  if (!require(package, character.only = TRUE)) {
-    install.packages(package, dependencies = TRUE)
-    library(package, character.only = TRUE)
-  }
-}
-
-library(shiny)
-library(shinythemes)
-library(ggplot2)
-library(dplyr)
-library(maps)
-library(stringr)
-library(shinydashboard)
-library(RColorBrewer)
-
 # Load data
 df <-
   read.csv("~/project-team25/data/prison_data.csv", stringsAsFactors = FALSE)
