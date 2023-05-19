@@ -7,16 +7,6 @@ author: "Kelly Culpepper & Biniam Garomsa"
 
 ```{r packages-data, include = FALSE}
 
-required_packages <- c("shiny", "shinythemes", "ggplot2", "dplyr", "maps", "stringr", "shinydashboard", "RColorBrewer")
-
-# Check if required packages are installed and install if necessary
-for (package in required_packages) {
-  if (!require(package, character.only = TRUE)) {
-    install.packages(package, dependencies = TRUE)
-    library(package, character.only = TRUE)
-  }
-}
-
 library(shiny)
 library(shinythemes)
 library(ggplot2)
