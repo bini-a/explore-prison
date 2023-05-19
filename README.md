@@ -20,5 +20,4 @@ Running shiny_app.R would start the shiny application.
   The code used to clean our data is found in data_clean.qmd. The original data source named CrimeData.csv is too large to upload to GitHub. The file can be found and downloaded from this [link.](https://drive.google.com/file/d/1cp8-IxaGGYTK0TYXG7eDiNBySRORNRKg/view?usp=sharing) 
 
 
-Biniam Garomsa
-Kelly Culpepper 
+Biniam Garomsa & Kelly Culpepper 
