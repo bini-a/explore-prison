@@ -4,10 +4,11 @@
 This is a shiny app that explores prison [survey data](https://doi.org/10.3886/ICPSR37692.V4) from year 2016.The Bureau of Justice Statistics (BJS) conducted the Survey of Prison Inmates (SPI), a national, wide-ranging survey of prisoners age 18 or older who were incarcerated in state or federal correctional facilities within the United States during 2016. We build this exploration tool to allow users to easily interact and visualize using filtered columns of data.
 
 
+### Usage
+Clone the repo and then run shiny_app.R 
 
-## Application
+### Application
 
-Running shiny_app.R would start the shiny application. 
 <img src = "data/app_demo.png" />
   
   
